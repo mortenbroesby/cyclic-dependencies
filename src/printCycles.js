@@ -1,11 +1,29 @@
+import { Table } from "console-table-printer"
+
 export function printVerboseResponse(cycles) {
-  console.log("\nCyclic dependencies found in workspace: \n")
-  console.log("--------------------------------------------------\n")
-  cycles.forEach(({ cycle, dependencyPaths }) => {
-    console.log(`[ Cycle: ${cycle[0]} ]\n`)
-    console.log(`Modules: \n${cycle.join(" -> \n")}\n`)
-    console.log(`Files: \n${dependencyPaths.join(" -> \n")}\n`)
-    console.log("--------------------------------------------------\n")
+  console.log("\nCyclic dependencies found in workspace:")
+
+  cycles.forEach(({ cycle, files }) => {
+    console.log("\n")
+    new Table({
+      title: `Cycle: ${cycle[0]}`,
+      columns: [
+        { name: "Modules", alignment: "left" },
+        { name: "Files", alignment: "left" },
+      ],
+    })
+      .addRows(
+        cycle.map((modules, index) => ({
+          Modules: `${modules}${index < cycle.length - 1 ? " ↓" : ""}`,
+          Files: `${files[index]}${index < cycle.length - 1 ? " ↓" : ""}`,
+        }))
+      )
+      // Ensure most rows have the same horizontal spacing
+      .addRow({
+        Modules: " ".repeat(40),
+        Files: " ".repeat(40),
+      })
+      .printTable()
   })
 }
 

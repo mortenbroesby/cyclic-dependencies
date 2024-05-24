@@ -105,11 +105,7 @@ describe("findCycles", () => {
     expect(cycles).toStrictEqual([
       {
         cycle: ["example1", "example2", "example1"],
-        dependencyPaths: [
-          "example1/package.json",
-          "example2/package.json",
-          "example1/package.json",
-        ],
+        files: ["example1/package.json", "example2/package.json", "example1/package.json"],
       },
     ])
   })
@@ -143,7 +139,7 @@ describe("findCycles", () => {
     expect(cycles).toStrictEqual([
       {
         cycle: ["d", "e", "f", "d"],
-        dependencyPaths: [
+        files: [
           "packages/d/package.json",
           "packages/e/package.json",
           "packages/f/package.json",
@@ -162,7 +158,7 @@ describe("findCycles", () => {
     expect(cycles).toStrictEqual([
       {
         cycle: ["a", "b", "c", "a"],
-        dependencyPaths: [
+        files: [
           "packages/a/package.json",
           "packages/b/package.json",
           "packages/c/package.json",
@@ -171,7 +167,7 @@ describe("findCycles", () => {
       },
       {
         cycle: ["d", "e", "f", "g", "d"],
-        dependencyPaths: [
+        files: [
           "packages/d/package.json",
           "packages/e/package.json",
           "packages/f/package.json",

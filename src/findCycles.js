@@ -8,24 +8,33 @@
 
 function findCycles(graph) {
   const nodes = Object.keys(graph).sort()
-  const colors = nodes.reduce((acc, current) => ({ ...acc, [current]: "white" }), {})
+
+  const colors = nodes.reduce(
+    (accumulator, current) => ({ ...accumulator, [current]: "white" }),
+    {}
+  )
+
   let cycles = []
 
   function visit(name, path = [], paths = []) {
     colors[name] = "gray"
+
     const dependencies = graph[name].dependencies
+
     for (const { name: neighbour, path: dependencyPath } of dependencies) {
       const color = colors[neighbour]
+
       if (color === "white") {
         visit(neighbour, [...path, name], [...paths, graph[name].path])
       } else if (color === "gray") {
         const index = path.indexOf(neighbour)
         cycles.push({
           cycle: [...path.slice(index), name, neighbour],
-          dependencyPaths: [...paths.slice(index), graph[name].path, dependencyPath],
+          files: [...paths.slice(index), graph[name].path, dependencyPath],
         })
       }
     }
+
     colors[name] = "black"
   }
 
