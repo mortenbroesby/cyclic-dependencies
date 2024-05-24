@@ -1,7 +1,8 @@
 import { Table } from "console-table-printer"
+import { red } from "./consoleColors.js"
 
 export function printVerboseResponse(cycles) {
-  console.log("\nCyclic dependencies found in workspace:")
+  console.log(`\n${red(`>> ${cycles.length + 1} Cyclic dependencies found in workspace.`)}`)
 
   cycles.forEach(({ cycle, files }) => {
     console.log("\n")
@@ -25,6 +26,8 @@ export function printVerboseResponse(cycles) {
       })
       .printTable()
   })
+
+  console.log(kleur.bgWhite("\nCyclic dependencies found in workspace:"))
 }
 
 async function printCycles(cycles, options = {}) {
