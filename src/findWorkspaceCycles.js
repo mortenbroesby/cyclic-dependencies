@@ -5,8 +5,7 @@ import findCycles from "./findCycles.js"
 async function findWorkspaceCycles() {
   const workspaces = await findWorkspacePackages()
   const graph = await buildPackageGraph(workspaces)
-
-  const cycles = await findCycles(graph)
+  const cycles = findCycles(graph)
   return cycles
 }
 

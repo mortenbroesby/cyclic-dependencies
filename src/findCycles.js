@@ -1,4 +1,5 @@
-/* DFS with node coloring
+/**
+ * DFS with node coloring
  * white: unvisited
  * gray: currently visiting this node and its children
  * black: already visited this node and all children
@@ -6,24 +7,23 @@
  */
 
 function findCycles(graph) {
-  let queue = Object.keys(graph)
-    .sort()
-    .map((name) => ({ name, path: [] }))
-
   const nodes = Object.keys(graph).sort()
   const colors = nodes.reduce((acc, current) => ({ ...acc, [current]: "white" }), {})
   let cycles = []
 
-  function visit(name, path = []) {
+  function visit(name, path = [], paths = []) {
     colors[name] = "gray"
-    const neighbours = graph[name]
-    for (const neighbour of neighbours) {
+    const dependencies = graph[name].dependencies
+    for (const { name: neighbour, path: dependencyPath } of dependencies) {
       const color = colors[neighbour]
       if (color === "white") {
-        visit(neighbour, [...path, name])
+        visit(neighbour, [...path, name], [...paths, graph[name].path])
       } else if (color === "gray") {
         const index = path.indexOf(neighbour)
-        cycles.push([...path.slice(index), name, neighbour])
+        cycles.push({
+          cycle: [...path.slice(index), name, neighbour],
+          dependencyPaths: [...paths.slice(index), graph[name].path, dependencyPath],
+        })
       }
     }
     colors[name] = "black"

@@ -1,31 +1,75 @@
 import fs from "fs/promises"
 
-async function buildPackageGraph(workspacePackages) {
-  const packages = await Promise.all(
+/**
+ * Reads and parses a JSON file.
+ *
+ * @param {string} packagePath - Path to the package.json file.
+ * @returns {Promise<Object>} Parsed JSON contents of the file.
+ */
+async function readPackageFile(packagePath) {
+  const file = await fs.readFile(packagePath)
+  return JSON.parse(file.toString())
+}
+
+/**
+ * Builds a map of package names to their paths and contents.
+ *
+ * @param {Array<string>} workspacePackages - List of paths to package.json files.
+ * @returns {Promise<Map<string, Object>>} Map of package names to their data.
+ */
+async function buildPackageMap(workspacePackages) {
+  const packageMap = new Map()
+
+  await Promise.all(
     workspacePackages.map(async (packagePath) => {
-      const file = await fs.readFile(packagePath)
-      return JSON.parse(file.toString())
+      const contents = await readPackageFile(packagePath)
+      packageMap.set(contents.name, { path: packagePath, contents })
     })
   )
 
-  const packageNames = packages.map((x) => x.name)
-  let result = {}
+  return packageMap
+}
 
-  for (let name of packageNames) {
-    result[name] = []
-  }
+/**
+ * Extracts dependencies that are part of the workspace.
+ *
+ * @param {Object} contents - The parsed contents of a package.json file.
+ * @param {Map<string, Object>} packageMap - Map of package names to their data.
+ * @returns {Array<Object>} List of dependencies with their names and paths.
+ */
+function extractWorkspaceDependencies(contents, packageMap) {
+  const extractDeps = (deps) =>
+    Object.keys(deps || {})
+      .filter((dependency) => packageMap.has(dependency))
+      .map((dependency) => ({
+        name: dependency,
+        path: packageMap.get(dependency).path,
+      }))
 
-  for (let p of packages) {
-    const dependencies = Object.keys(p.dependencies || {}).filter((dependency) =>
-      packageNames.includes(dependency)
-    )
-    const devDependencies = Object.keys(p.devDependencies || {}).filter((dependency) =>
-      packageNames.includes(dependency)
-    )
-    result[p.name] = dependencies.concat(devDependencies)
-  }
+  const dependencies = extractDeps(contents.dependencies)
+  const devDependencies = extractDeps(contents.devDependencies)
 
-  return result
+  return dependencies.concat(devDependencies)
+}
+
+/**
+ * Builds an adjacency list representing the workspace package graph.
+ *
+ * @param {Array<string>} workspacePackages - List of paths to package.json files.
+ * @returns {Promise<Object>} Adjacency list of workspace packages.
+ */
+async function buildPackageGraph(workspacePackages) {
+  const packageMap = await buildPackageMap(workspacePackages)
+
+  return Array.from(packageMap.entries()).reduce((accumulator, [name, { path, contents }]) => {
+    return {
+      ...accumulator,
+      [name]: {
+        path,
+        dependencies: extractWorkspaceDependencies(contents, packageMap),
+      },
+    }
+  }, {})
 }
 
 export default buildPackageGraph

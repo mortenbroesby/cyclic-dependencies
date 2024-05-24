@@ -68,7 +68,21 @@ describe("buildPackageGraph", () => {
     const workspaces = await findWorkspacePackages()
     const graph = await buildPackageGraph(workspaces)
 
-    expect(graph).toEqual({ example1: ["example2"], example2: [] })
+    expect(graph).toStrictEqual({
+      example1: {
+        path: "example1/package.json",
+        dependencies: [
+          {
+            name: "example2",
+            path: "example2/package.json",
+          },
+        ],
+      },
+      example2: {
+        path: "example2/package.json",
+        dependencies: [],
+      },
+    })
   })
 })
 
@@ -77,7 +91,7 @@ describe("findCycles", () => {
     initFixture("default")
     const workspaces = await findWorkspacePackages()
     const graph = await buildPackageGraph(workspaces)
-    const cycles = await findCycles(graph)
+    const cycles = findCycles(graph)
 
     expect(cycles).toStrictEqual([])
   })
@@ -86,19 +100,37 @@ describe("findCycles", () => {
     initFixture("cycle")
     const workspaces = await findWorkspacePackages()
     const graph = await buildPackageGraph(workspaces)
-    const cycles = await findCycles(graph)
+    const cycles = findCycles(graph)
 
-    expect(cycles).toStrictEqual([["example1", "example2", "example1"]])
+    expect(cycles).toStrictEqual([
+      {
+        cycle: ["example1", "example2", "example1"],
+        dependencyPaths: [
+          "example1/package.json",
+          "example2/package.json",
+          "example1/package.json",
+        ],
+      },
+    ])
   })
 
   it("finds larger cycle", async () => {
     initFixture("cycle-larger")
     const workspaces = await findWorkspacePackages()
     const graph = await buildPackageGraph(workspaces)
-    const cycles = await findCycles(graph)
+    const cycles = findCycles(graph)
 
-    expect(cycles).toStrictEqual([
-      ["eight", "nine", "one", "two", "three", "four", "five", "six", "seven", "eight"],
+    expect(cycles[0].cycle).toStrictEqual([
+      "eight",
+      "nine",
+      "one",
+      "two",
+      "three",
+      "four",
+      "five",
+      "six",
+      "seven",
+      "eight",
     ])
   })
 
@@ -106,21 +138,47 @@ describe("findCycles", () => {
     initFixture("cycle-subset")
     const workspaces = await findWorkspacePackages()
     const graph = await buildPackageGraph(workspaces)
-    const cycles = await findCycles(graph)
+    const cycles = findCycles(graph)
 
-    expect(cycles).toStrictEqual([["d", "e", "f", "d"]])
+    expect(cycles).toStrictEqual([
+      {
+        cycle: ["d", "e", "f", "d"],
+        dependencyPaths: [
+          "packages/d/package.json",
+          "packages/e/package.json",
+          "packages/f/package.json",
+          "packages/d/package.json",
+        ],
+      },
+    ])
   })
 
   it("finds multiple cycles", async () => {
     initFixture("cycle-multi")
     const workspaces = await findWorkspacePackages()
     const graph = await buildPackageGraph(workspaces)
-
-    const cycles = await findCycles(graph)
+    const cycles = findCycles(graph)
 
     expect(cycles).toStrictEqual([
-      ["a", "b", "c", "a"],
-      ["d", "e", "f", "g", "d"],
+      {
+        cycle: ["a", "b", "c", "a"],
+        dependencyPaths: [
+          "packages/a/package.json",
+          "packages/b/package.json",
+          "packages/c/package.json",
+          "packages/a/package.json",
+        ],
+      },
+      {
+        cycle: ["d", "e", "f", "g", "d"],
+        dependencyPaths: [
+          "packages/d/package.json",
+          "packages/e/package.json",
+          "packages/f/package.json",
+          "packages/g/package.json",
+          "packages/d/package.json",
+        ],
+      },
     ])
   })
 })
