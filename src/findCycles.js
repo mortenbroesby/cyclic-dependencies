@@ -6,41 +6,57 @@
  * if we investigate edge to gray node, it is a back edge -> cycle
  */
 
+/**
+ * Visit a node and its dependencies to find cycles.
+ */
+function visit({ nodeName, graph, path = [], paths = [], colors, cycles }) {
+  colors[nodeName] = "gray"
+
+  const dependencies = graph[nodeName].dependencies
+
+  for (const { name: dependencyName, path: dependencyPath } of dependencies) {
+    const dependencyColor = colors[dependencyName]
+
+    if (dependencyColor === "white") {
+      // Recursively visit uncolors (white) nodes
+      visit({
+        nodeName: dependencyName,
+        graph,
+        path: [...path, nodeName],
+        paths: [...paths, graph[nodeName].path],
+        colors,
+        cycles,
+      })
+    } else if (dependencyColor === "gray") {
+      // Found a cycle (back edge)
+      const cycleStartIndex = path.indexOf(dependencyName)
+
+      cycles.push({
+        cycle: [...path.slice(cycleStartIndex), nodeName, dependencyName],
+        files: [...paths.slice(cycleStartIndex), graph[nodeName].path, dependencyPath],
+      })
+    }
+  }
+
+  colors[nodeName] = "black"
+}
+
+/**
+ * Find cycles in a graph of package dependencies.
+ */
 function findCycles(graph) {
   const nodes = Object.keys(graph).sort()
 
-  const colors = nodes.reduce(
-    (accumulator, current) => ({ ...accumulator, [current]: "white" }),
-    {}
-  )
+  // Initialize all nodes as uncolors
+  const colors = nodes.reduce((acc, current) => ({ ...acc, [current]: "white" }), {})
 
-  let cycles = []
+  // Store cycles found in the graph
+  const cycles = []
 
-  function visit(name, path = [], paths = []) {
-    colors[name] = "gray"
-
-    const dependencies = graph[name].dependencies
-
-    for (const { name: neighbour, path: dependencyPath } of dependencies) {
-      const color = colors[neighbour]
-
-      if (color === "white") {
-        visit(neighbour, [...path, name], [...paths, graph[name].path])
-      } else if (color === "gray") {
-        const index = path.indexOf(neighbour)
-        cycles.push({
-          cycle: [...path.slice(index), name, neighbour],
-          files: [...paths.slice(index), graph[name].path, dependencyPath],
-        })
-      }
-    }
-
-    colors[name] = "black"
-  }
-
-  while (nodes.some((x) => colors[x] === "white")) {
-    const whiteNode = nodes.find((x) => colors[x] === "white")
-    visit(whiteNode)
+  // Visit all nodes in the graph
+  while (nodes.some((node) => colors[node] === "white")) {
+    const nodeName = nodes.find((node) => colors[node] === "white")
+    visit({ nodeName, graph, colors, cycles })
   }
 
   return cycles
