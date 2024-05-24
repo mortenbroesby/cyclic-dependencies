@@ -1,28 +1,19 @@
 #!/usr/bin/env node
 
 import findWorkspaceCycles from "../src/findWorkspaceCycles.js"
-import formatCycles from "../src/formatCycles.js"
+import printCycles from "../src/printCycles.js"
 
 async function run() {
   const args = process.argv.slice(2)
+  const logVerbose = args.includes("--verbose")
+  const rejectOnCycles = args.includes("--reject")
 
   try {
     const cycles = await findWorkspaceCycles()
-    const { message, results } = await formatCycles(cycles)
+    await printCycles(cycles, { logVerbose })
 
-    console.log(`\n${message}\n`)
-
-    if (results.length > 0) {
-      results.forEach((result) => {
-        console.log(`[ ${result.initialModule} ]\n`)
-        console.log(`Modules: \n${result.cycle}\n`)
-        console.log(`Files: \n${result.files}\n`)
-        console.log("--------------------------------------------------\n")
-      })
-
-      if (args.includes("--reject")) {
-        process.exit(1)
-      }
+    if (rejectOnCycles && cycles.length > 0) {
+      process.exit(1)
     }
   } catch (error) {
     console.error("ERROR: ", error.message)
