@@ -28,6 +28,7 @@
     "src"
   ],
   "bin": {
+    "cyclic-dependencies.old": "bin/cyclic-dependencies.js",
     "cyclic-dependencies": "bin/cyclic-dependencies.js"
   },
   "scripts": {
@@ -38,12 +39,13 @@
   "author": "Tobias Kloht",
   "license": "MIT",
   "devDependencies": {
+    "asciitree": "^1.0.2",
+    "globby": "^13.1.2",
     "jest": "^28.1.1",
+    "js-yaml": "^4.1.0",
     "prettier": "^2.7.1"
   },
   "dependencies": {
-    "console-table-printer": "^2.12.0",
-    "globby": "^13.1.2",
-    "js-yaml": "^4.1.0"
+    "console-table-printer": "^2.12.0"
   }
 }
