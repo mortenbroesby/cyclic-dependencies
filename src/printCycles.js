@@ -26,8 +26,6 @@ export function printVerboseResponse(cycles) {
       })
       .printTable()
   })
-
-  console.log(kleur.bgWhite("\nCyclic dependencies found in workspace:"))
 }
 
 async function printCycles(cycles, options = {}) {
