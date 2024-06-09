@@ -5,9 +5,10 @@ import yaml from "js-yaml"
 import { execSync } from "child_process"
 import yargs from "yargs"
 import { hideBin } from "yargs/helpers"
+import { Table } from "console-table-printer"
 
-import { red } from "./consoleColors.js"
-import { printVerboseResponse } from "./printCycles.js"
+import { red, yellow } from "./consoleColors.js"
+import { printCycleResponse } from "./printCycles.js"
 
 /**
  * DFS with node coloring
@@ -186,6 +187,9 @@ async function findWorkspaceCycles() {
   return cycles
 }
 
+////////////////////////////////////////
+//#region Generate DOT File
+
 async function generateDotFile(cycles) {
   let dot = "digraph G {\n"
 
@@ -212,6 +216,12 @@ async function generateDotFile(cycles) {
   }
 }
 
+//#endregion Generate DOT File
+////////////////////////////////////////
+
+////////////////////////////////////////
+//#region Visualize Cycles
+
 function findCycleStart(cycle) {
   const firstOccurrence = {}
   let cycleStart = null
@@ -228,44 +238,105 @@ function findCycleStart(cycle) {
   return cycleStart
 }
 
-function findCriticalDependency(files) {
-  for (let i = 1; i < files.length; i++) {
-    if (files[i] === files[0]) {
-      return `${files[i - 1]} importing ${files[i]}`
-    }
-  }
-  return "Unknown dependency causing cycle"
+function findCriticalDependencies(files) {
+  const dependencies = []
+  files.forEach((file, index) => {
+    dependencies.push(`${file} imports ${files[index + 1]}`)
+  })
+  return dependencies
 }
 
-function generateCycleReport(cycles) {
-  console.log(`\n${red(`>> ${cycles.length + 1} Cyclic dependencies found in workspace.`)}`)
-
+function groupUniqueCyclesByStart(cycles) {
   const cycleGroups = {}
 
-  // Group cycles by the first package name
   cycles.forEach((cycle) => {
     const cycleStart = findCycleStart(cycle.cycle)
     if (!cycleGroups[cycleStart]) {
-      cycleGroups[cycleStart] = {
-        cycles: [],
-        cycleStart,
-        dependencies: [],
-      }
+      cycleGroups[cycleStart] = []
     }
-    cycleGroups[cycleStart].cycles.push(cycle.cycle)
-    cycleGroups[cycleStart].dependencies.push(findCriticalDependency(cycle.files))
+    cycleGroups[cycleStart].push(cycle)
   })
 
-  console.log("---------------------------")
-  Object.keys(cycleGroups).forEach((groupName) => {
-    const group = cycleGroups[groupName]
-    console.log(`Cycle starts at: ${group.cycleStart}`)
-    console.log("Critical dependencies causing the cycle:")
-    const uniqueDependencies = [...new Set(group.dependencies)]
-    uniqueDependencies.forEach((dependency) => console.log(`  - ${dependency}`))
+  return cycleGroups
+}
+
+function findShortestCycle(cycles) {
+  return cycles.reduce((shortest, current) => {
+    return current.cycle.length < shortest.cycle.length ? current : shortest
+  }, cycles[0])
+}
+
+function generateCycleReport(cycles, options) {
+  // Print the whole picture
+  if (options.verbose) {
+    console.log("Full Cycle Report:")
+    console.log(`${red(`>> ${Object.keys(cycles).length} cycles found in workspace.`)}`)
+    cycles.forEach((cycle) => {
+      const cycleStart = findCycleStart(cycle.cycle)
+      const criticalDependencies = findCriticalDependencies(cycle.files)
+
+      console.log("---------------------------")
+      console.log(`Cycle Group: ${cycleStart}`)
+      console.log(`Cycle starts at: ${cycleStart}`)
+      console.log("Files involved:")
+      cycle.files.forEach((file) => console.log(`  - ${file}`))
+      console.log("Critical dependencies causing the cycle:")
+      criticalDependencies.forEach((dependency) => console.log(`  - ${dependency}`))
+      console.log("Cycle details:")
+      console.log(`  ${cycle.cycle.join(" -> ")}`)
+    })
     console.log("---------------------------")
+  }
+
+  // Group cycles by their start package
+  const cycleGroups = groupUniqueCyclesByStart(cycles)
+
+  // Print the shortest unique non-overlapping cycles
+  console.log(`${red(`>> ${Object.keys(cycleGroups).length} unique cycles found in workspace.`)}`)
+  Object.keys(cycleGroups).forEach((cycleStart, cycleIndex) => {
+    const shortestCycle = findShortestCycle(cycleGroups[cycleStart])
+    const criticalDependencies = findCriticalDependencies(shortestCycle.files)
+
+    console.log("---------------------------")
+    console.log(`${red(`[Cycle ${cycleIndex + 1}]: ${`${yellow(cycleStart)}`}`)}`)
+    console.log("Package Graph:")
+    console.log(`  ${shortestCycle.cycle.join(" -> ")}`)
+    console.log("Files involved:")
+    shortestCycle.files.forEach((file) => console.log(`  - ${file}`))
+    console.log("Critical dependencies causing the cycle:")
+    criticalDependencies.forEach((dependency) => console.log(`  - ${dependency}`))
+  })
+  console.log("---------------------------")
+
+  // Print using table
+  console.log(`${red(`>> ${Object.keys(cycleGroups).length} unique cycles found in workspace.`)}`)
+  Object.keys(cycleGroups).forEach((cycleStart, cycleIndex) => {
+    const cycle = findShortestCycle(cycleGroups[cycleStart])
+    const criticalDependencies = findCriticalDependencies(cycle.files)
+
+    console.log("\n")
+
+    const table = new Table({
+      title: `Cycle: ${cycleStart}`,
+      columns: [
+        { name: "Modules", alignment: "left" },
+        { name: "Files", alignment: "left" },
+      ],
+    })
+
+    table.addRows(
+      cycle.cycle.map((modules, index) => ({
+        Modules: `${modules}${index < cycle.cycle.length - 1 ? " ↓" : ""}`,
+        Files: `${cycle.files[index]}${index < cycle.files.length - 1 ? " ↓" : ""}`,
+      }))
+    )
+
+    table.printTable()
   })
 }
+
+//#endregion Visualize Cycles
+////////////////////////////////////////
 
 export default async function visualizeCycles() {
   const options = yargs(hideBin(process.argv))
@@ -284,6 +355,11 @@ export default async function visualizeCycles() {
       type: "boolean",
       description: "Print a detailed report of the cycles",
     })
+    .option("verbose", {
+      alias: "v",
+      type: "boolean",
+      description: "Print verbose output",
+    })
     .help()
     .alias("help", "h").argv
 
@@ -299,10 +375,10 @@ export default async function visualizeCycles() {
   }
 
   if (options.text) {
-    return printVerboseResponse(cycles)
+    return printCycleResponse(cycles)
   }
 
   if (options.report) {
-    return generateCycleReport(cycles)
+    return generateCycleReport(cycles, options)
   }
 }
