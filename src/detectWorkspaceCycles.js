@@ -6,8 +6,9 @@ import { execSync } from "child_process"
 import yargs from "yargs"
 import { hideBin } from "yargs/helpers"
 import { Table } from "console-table-printer"
+import boxen from "boxen"
 
-import { red, yellow } from "./consoleColors.js"
+import * as colors from "./consoleColors.js"
 import { printCycleResponse } from "./printCycles.js"
 
 /**
@@ -240,9 +241,9 @@ function findCycleStart(cycle) {
 
 function findCriticalDependencies(files) {
   const dependencies = []
-  files.forEach((file, index) => {
-    dependencies.push(`${file} imports ${files[index + 1]}`)
-  })
+  for (let i = 1; i < files.length; i++) {
+    dependencies.push(`${files[i - 1]} ↪ ${files[i]}`)
+  }
   return dependencies
 }
 
@@ -266,73 +267,59 @@ function findShortestCycle(cycles) {
   }, cycles[0])
 }
 
-function generateCycleReport(cycles, options) {
-  // Print the whole picture
-  if (options.verbose) {
-    console.log("Full Cycle Report:")
-    console.log(`${red(`>> ${Object.keys(cycles).length} cycles found in workspace.`)}`)
-    cycles.forEach((cycle) => {
-      const cycleStart = findCycleStart(cycle.cycle)
-      const criticalDependencies = findCriticalDependencies(cycle.files)
+const boxenStyles = {
+  padding: 1,
+  margin: 0,
+  borderStyle: "round",
+  borderColor: "gray",
+  width: 150,
+}
 
-      console.log("---------------------------")
-      console.log(`Cycle Group: ${cycleStart}`)
-      console.log(`Cycle starts at: ${cycleStart}`)
-      console.log("Files involved:")
-      cycle.files.forEach((file) => console.log(`  - ${file}`))
-      console.log("Critical dependencies causing the cycle:")
-      criticalDependencies.forEach((dependency) => console.log(`  - ${dependency}`))
-      console.log("Cycle details:")
-      console.log(`  ${cycle.cycle.join(" -> ")}`)
-    })
-    console.log("---------------------------")
-  }
-
-  // Group cycles by their start package
+async function generateCycleReport(cycles) {
   const cycleGroups = groupUniqueCyclesByStart(cycles)
 
-  // Print the shortest unique non-overlapping cycles
-  console.log(`${red(`>> ${Object.keys(cycleGroups).length} unique cycles found in workspace.`)}`)
-  Object.keys(cycleGroups).forEach((cycleStart, cycleIndex) => {
-    const shortestCycle = findShortestCycle(cycleGroups[cycleStart])
-    const criticalDependencies = findCriticalDependencies(shortestCycle.files)
+  const packageJsonPath = path.join(process.cwd(), "package.json")
+  const { name: packageName } = JSON.parse(await fs.readFile(packageJsonPath, "utf8"))
 
-    console.log("---------------------------")
-    console.log(`${red(`[Cycle ${cycleIndex + 1}]: ${`${yellow(cycleStart)}`}`)}`)
-    console.log("Package Graph:")
-    console.log(`  ${shortestCycle.cycle.join(" -> ")}`)
-    console.log("Files involved:")
-    shortestCycle.files.forEach((file) => console.log(`  - ${file}`))
-    console.log("Critical dependencies causing the cycle:")
-    criticalDependencies.forEach((dependency) => console.log(`  - ${dependency}`))
-  })
-  console.log("---------------------------")
+  console.log("\n")
 
-  // Print using table
-  console.log(`${red(`>> ${Object.keys(cycleGroups).length} unique cycles found in workspace.`)}`)
+  console.log(
+    boxen(`${colors.red(`>> ${Object.keys(cycleGroups).length} unique cycles found.`)}`, {
+      title: `[ Repository: ${packageName} ]`,
+      ...boxenStyles,
+      borderColor: "blue",
+    })
+  )
+
   Object.keys(cycleGroups).forEach((cycleStart, cycleIndex) => {
     const cycle = findShortestCycle(cycleGroups[cycleStart])
     const criticalDependencies = findCriticalDependencies(cycle.files)
 
-    console.log("\n")
+    const cycleData = cycle.cycle.map((packageName, index) => ({
+      packageName: `${packageName}${index < cycle.cycle.length - 1 ? " ↓" : ""}`,
+      filePath: `${cycle.files[index]}${index < cycle.files.length - 1 ? " ↓" : ""}`,
+    }))
 
-    const table = new Table({
-      title: `Cycle: ${cycleStart}`,
-      columns: [
-        { name: "Modules", alignment: "left" },
-        { name: "Files", alignment: "left" },
-      ],
-    })
+    const packageNameData = cycleData.map(({ packageName }) => `${packageName}`).join("\n")
+    const filePathData = cycleData.map(({ filePath }) => `${filePath}`).join("\n")
+    const dependencyData = criticalDependencies.map((dependency) => `- ${dependency}`).join("\n")
 
-    table.addRows(
-      cycle.cycle.map((modules, index) => ({
-        Modules: `${modules}${index < cycle.cycle.length - 1 ? " ↓" : ""}`,
-        Files: `${cycle.files[index]}${index < cycle.files.length - 1 ? " ↓" : ""}`,
-      }))
+    console.log(
+      boxen(
+        `${colors.white("Packages:")}\n${packageNameData}\n\n${colors.white(
+          "Files:"
+        )}\n${filePathData}
+\n${colors.white("Critical Circular Path:")}
+${dependencyData}`,
+        {
+          title: colors.white(`Cycle ${cycleIndex + 1}: ${cycleStart}`),
+          ...boxenStyles,
+        }
+      )
     )
-
-    table.printTable()
   })
+
+  console.log("\n")
 }
 
 //#endregion Visualize Cycles
@@ -355,11 +342,6 @@ export default async function visualizeCycles() {
       type: "boolean",
       description: "Print a detailed report of the cycles",
     })
-    .option("verbose", {
-      alias: "v",
-      type: "boolean",
-      description: "Print verbose output",
-    })
     .help()
     .alias("help", "h").argv
 
@@ -379,6 +361,6 @@ export default async function visualizeCycles() {
   }
 
   if (options.report) {
-    return generateCycleReport(cycles, options)
+    return await generateCycleReport(cycles, options)
   }
 }

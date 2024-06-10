@@ -40,6 +40,7 @@
   "license": "MIT",
   "devDependencies": {
     "asciitree": "^1.0.2",
+    "boxen": "^7.1.1",
     "globby": "^13.1.2",
     "jest": "^28.1.1",
     "js-yaml": "^4.1.0",

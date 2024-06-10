@@ -1,8 +1,8 @@
 import { Table } from "console-table-printer"
-import { red } from "./consoleColors.js"
+import * as colors from "./consoleColors.js"
 
 export function printCycleResponse(cycles) {
-  console.log(`\n${red(`>> ${cycles.length + 1} Cyclic dependencies found in workspace.`)}`)
+  console.log(`\n${colors.red(`>> ${cycles.length + 1} Cyclic dependencies found in workspace.`)}`)
 
   cycles.forEach(({ cycle, files }) => {
     console.log("\n")
