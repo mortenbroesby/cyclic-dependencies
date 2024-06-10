@@ -287,7 +287,7 @@ async function generateCycleReport(cycles) {
     boxen(`${colors.red(`>> ${Object.keys(cycleGroups).length} unique cycles found.`)}`, {
       title: `[ Repository: ${packageName} ]`,
       ...boxenStyles,
-      borderColor: "blue",
+      borderColor: "white",
     })
   )
 
@@ -296,19 +296,21 @@ async function generateCycleReport(cycles) {
     const criticalDependencies = findCriticalDependencies(cycle.files)
 
     const cycleData = cycle.cycle.map((packageName, index) => ({
-      packageName: `${packageName}${index < cycle.cycle.length - 1 ? " ↓" : ""}`,
-      filePath: `${cycle.files[index]}${index < cycle.files.length - 1 ? " ↓" : ""}`,
+      packageName: `${packageName}${index < cycle.cycle.length - 1 ? "" : ""}`,
+      filePath: `${cycle.files[index]}${index < cycle.files.length - 1 ? "" : ""}`,
     }))
 
-    const packageNameData = cycleData.map(({ packageName }) => `${packageName}`).join("\n")
-    const filePathData = cycleData.map(({ filePath }) => `${filePath}`).join("\n")
-    const dependencyData = criticalDependencies.map((dependency) => `- ${dependency}`).join("\n")
+    const tableData = cycleData
+      .map(
+        ({ packageName, filePath }) => `↪ ${colors.white(packageName)}\n${colors.yellow(filePath)}`
+      )
+      .join("\n\n")
+
+    const dependencyData = criticalDependencies.map((dependency) => `↪ ${dependency}`).join("\n")
 
     console.log(
       boxen(
-        `${colors.white("Packages:")}\n${packageNameData}\n\n${colors.white(
-          "Files:"
-        )}\n${filePathData}
+        `${colors.white("Cycle Graph:")}\n\n${tableData}\n
 \n${colors.white("Critical Circular Path:")}
 ${dependencyData}`,
         {
