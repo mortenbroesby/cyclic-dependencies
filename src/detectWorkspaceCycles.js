@@ -5,11 +5,9 @@ import yaml from "js-yaml"
 import { execSync } from "child_process"
 import yargs from "yargs"
 import { hideBin } from "yargs/helpers"
-import { Table } from "console-table-printer"
 import boxen from "boxen"
 
 import * as colors from "./consoleColors.js"
-import { printCycleResponse } from "./printCycles.js"
 
 /**
  * DFS with node coloring
@@ -296,8 +294,8 @@ async function generateCycleReport(cycles) {
     const criticalDependencies = findCriticalDependencies(cycle.files)
 
     const cycleData = cycle.cycle.map((packageName, index) => ({
-      packageName: `${packageName}${index < cycle.cycle.length - 1 ? "" : ""}`,
-      filePath: `${cycle.files[index]}${index < cycle.files.length - 1 ? "" : ""}`,
+      packageName: `${packageName}`,
+      filePath: `${cycle.files[index]}`,
     }))
 
     const tableData = cycleData
@@ -306,13 +304,11 @@ async function generateCycleReport(cycles) {
       )
       .join("\n\n")
 
-    const dependencyData = criticalDependencies.map((dependency) => `↪ ${dependency}`).join("\n")
-
     console.log(
       boxen(
-        `${colors.white("Cycle Graph:")}\n\n${tableData}\n
+        `\n${tableData}\n
 \n${colors.white("Critical Circular Path:")}
-${dependencyData}`,
+${criticalDependencies.map((dependency) => `↪ ${dependency}`).join("\n")}`,
         {
           title: colors.white(`Cycle ${cycleIndex + 1}: ${cycleStart}`),
           ...boxenStyles,
@@ -334,11 +330,6 @@ export default async function visualizeCycles() {
       type: "boolean",
       description: "Generate a DOT file and image for the cycles",
     })
-    .option("text", {
-      alias: "t",
-      type: "boolean",
-      description: "Print a text-based representation of the cycles",
-    })
     .option("report", {
       alias: "r",
       type: "boolean",
@@ -356,10 +347,6 @@ export default async function visualizeCycles() {
 
   if (options.image) {
     return await generateDotFile(cycles)
-  }
-
-  if (options.text) {
-    return printCycleResponse(cycles)
   }
 
   if (options.report) {
